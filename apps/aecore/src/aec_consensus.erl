@@ -2,6 +2,7 @@
 %%% -------------------------------------------------------------------
 %%% @copyright (C) 2020, Aeternity Anstalt
 %%% @doc Consensus behavior for customizing the node
+%%%      Consensus is responsible for validating, emitting and processing of keyblocks
 %%%      Only one consensus algorithm might be enabled at a given height
 %%%      Some consensus algorithms provide a special instrumentation HTTP API
 %%%      for controlling consensus specific functionality. Some consensus
@@ -45,13 +46,12 @@
 %%%     - API for querying the authorities, consensus status
 %%%     ---------------------------------------------------------------
 %%%     HC Consensus
-%%%     - Can be enabled/disabled amd switched to another algorithm
+%%%     - Can be enabled/disabled and switched to another algorithm
 %%%     - Some plugins might get enabled
 %%%     - Keyblocks contain hashes from another blockchain and a signature
 %%%     - API for querying election/delegate status etc...
 %%% @end
 %%% -------------------------------------------------------------------
-
 -module(aec_consensus).
 
 %% API
@@ -83,11 +83,14 @@
 %% the existing fields instead of changing the serialization is to ensure no client
 %% tooling breaks - middleware can just connect to a HC/PoA/Dev enabled node and
 %% just work without refactoring code on the client side
--callback populate_extra(term()) -> term().
+-callback extra_from_header(term()) -> term().
 
 %% Callbacks for building the insertion ctx
 -callback recent_cache_n() -> non_neg_integer().
 -callback recent_cache_trim_header(term()) -> term().
+
+%% Validates the crypto seal on the given key block
+-callback validate_key_seal(term()) -> ok | {error, term()}.
 
 %% This callback is called in dirty context before starting the block insertion
 %% It's called only when the insertion context got properly created:
@@ -99,7 +102,7 @@
 %%      * prev_block points to the same generation as prev_key_blocks
 -callback dirty_validate_key_header(term()) -> ok | {error, term()}.
 %%
-%5-callback validate_key_header_with_state(term())
+%%-callback validate_key_header_with_state(term())
 
 %% Consensus modules might define their own genesis block
 -callback genesis_block_with_state() -> term().

@@ -55,22 +55,15 @@
          validate_key_block_header/2,
          validate_micro_block_header/2,
          version/1,
-         strip_extra/1
+         strip_extra/1,
+         set_extra/2,
+         extra/1,
+         consensus_module/1
         ]).
-
--pluggable([ deserialize_from_binary/1
-           , deserialize_from_binary_partial/1
-           , deserialize_key_from_binary/1
-           , deserialize_micro_from_binary/1
-           , validate_key_block_header/2
-           , validate_micro_block_header/2
-           , validate_pow/2
-           ]).
 
 -include_lib("aeminer/include/aeminer.hrl").
 -include_lib("aecontract/include/hard_forks.hrl").
 -include("blocks.hrl").
--include("aec_plugin.hrl").
 
 %%%===================================================================
 %%% Records and types
@@ -462,10 +455,20 @@ update_micro_candidate(#mic_header{} = H, TxsRootHash, RootHash) ->
                 }.
 
 -spec set_extra(header(), map()) -> header().
-set_extra(#mic_header{} = Header, Extra) ->
-    Header#mic_header{extra = Extra};
 set_extra(#key_header{} = Header, Extra) ->
-    Header#key_header{extra = Extra}.
+    Header#key_header{extra = Extra};
+set_extra(#mic_header{} = Header, Extra) ->
+    Header#mic_header{extra = Extra}.
+
+-spec extra(header()) -> map().
+extra(#key_header{extra = Extra}) -> Extra;
+extra(#mic_header{extra = Extra}) -> Extra.
+
+%% The consensus module gets populated in the extra map in the consensus module
+-spec consensus_module(header()) -> atom().
+consensus_module(Header) ->
+    #{consensus := Consensus} = extra(Header),
+    Consensus.
 
 %%%===================================================================
 %%% Serialization
@@ -782,20 +785,10 @@ validate_protocol(Header, Protocol) ->
 
 -spec validate_pow(header(), aec_hard_forks:protocol_vsn()) ->
                           ok | {error, incorrect_pow}.
-validate_pow(#key_header{nonce        = Nonce,
-                         pow_evidence = Evd,
-                         target       = Target} = Header, _Protocol)
+validate_pow(#key_header{nonce = Nonce} = Header, _Protocol)
   when Nonce >= 0, Nonce =< ?MAX_NONCE ->
-    %% Zero nonce and pow_evidence before hashing, as this is how the mined block
-    %% got hashed.
-    Header1 = Header#key_header{nonce = 0, pow_evidence = no_value},
-    HeaderBinary = serialize_to_binary(Header1),
-    case aec_mining:verify(HeaderBinary, Nonce, Evd, Target) of
-        true ->
-            ok;
-        false ->
-            {error, incorrect_pow}
-    end.
+    Consensus = consensus_module(Header),
+    Consensus:validate_key_seal(Header).
 
 -spec validate_micro_block_cycle_time(header(), aec_hard_forks:protocol_vsn()) ->
                                              ok | {error, bad_micro_block_interval}.
@@ -837,7 +830,9 @@ decode(Type, Enc) ->
 strip_extra(Header) ->
     set_extra(Header, #{}).
 
-populate_extra(Header) ->
-    Height = height(Header),
+populate_extra(Header1) ->
+    Height = height(Header1),
     Consensus = aec_bitcoin_ng, %% TODO: derive module from height
-    set_extra(Header, Consensus:populate_extra(Header)).
+    Header2 = set_extra(Header1, Consensus:extra_from_header(Header1)),
+    Consensus = consensus_module(Header2),
+    Header2.
