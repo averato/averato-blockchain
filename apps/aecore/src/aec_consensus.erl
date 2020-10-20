@@ -79,6 +79,8 @@
 %% HC might provide a debug endpoint for the staking contract and some insights
 -callback is_providing_extra_http_endpoints() -> boolean().
 -callback extra_http_endpoints() -> term().
+%% Special consensus features - some of them are exposed via the above http endpoints
+-callback client_request(term()) -> term().
 
 %% -------------------------------------------------------------------
 %% Deserialization of headers

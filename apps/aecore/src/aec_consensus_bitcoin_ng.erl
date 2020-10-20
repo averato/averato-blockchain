@@ -4,7 +4,7 @@
 %%% @doc BitcoinNG consensus module
 %%% @end
 %%% -------------------------------------------------------------------
--module(aec_bitcoin_ng).
+-module(aec_consensus_bitcoin_ng).
 -behavior(aec_consensus).
 
 %% API

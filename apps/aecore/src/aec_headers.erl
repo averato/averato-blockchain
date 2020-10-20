@@ -837,7 +837,7 @@ strip_extra(Header) ->
 
 populate_extra(Header1) ->
     Height = height(Header1),
-    Consensus = aec_bitcoin_ng, %% TODO: derive module from height
+    Consensus = aec_consensus_bitcoin_ng, %% TODO: derive module from height
     Header2 = set_extra(Header1, Consensus:extra_from_header(Header1)),
     Consensus = consensus_module(Header2),
     Header2.
