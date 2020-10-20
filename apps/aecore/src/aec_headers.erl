@@ -38,6 +38,7 @@
          set_nonce_and_pow/3,
          set_info/2,
          set_pof_hash/2,
+         set_pow/2,
          set_prev_hash/2,
          set_prev_key_hash/2,
          set_root_hash/2,
@@ -393,6 +394,10 @@ set_pof_hash(Header, Hash) when byte_size(Hash) =:= 0;
 -spec pow(key_header()) -> aeminer_pow_cuckoo:solution().
 pow(#key_header{pow_evidence = Evd}) ->
     Evd.
+
+-spec set_pow(key_header(), aeminer_pow_cuckoo:solution() | no_value) -> key_header().
+set_pow(#key_header{} = Header, Pow) ->
+    Header#key_header{pow_evidence = Pow}.
 
 -spec root_hash(header()) -> state_hash().
 root_hash(#key_header{root_hash = H}) -> H;
@@ -763,7 +768,7 @@ deserialize_pow_evidence(_) ->
 
 validate_key_block_header(Header, Protocol) ->
     Validators = [fun validate_protocol/2,
-                  fun validate_pow/2,
+                  fun validate_key_header_seal/2,
                   fun validate_max_time/2],
     aeu_validation:run(Validators, [Header, Protocol]).
 
@@ -783,12 +788,12 @@ validate_protocol(Header, Protocol) ->
         false -> {error, protocol_version_mismatch}
     end.
 
--spec validate_pow(header(), aec_hard_forks:protocol_vsn()) ->
+-spec validate_key_header_seal(header(), aec_hard_forks:protocol_vsn()) ->
                           ok | {error, incorrect_pow}.
-validate_pow(#key_header{nonce = Nonce} = Header, _Protocol)
+validate_key_header_seal(#key_header{nonce = Nonce} = Header, Protocol)
   when Nonce >= 0, Nonce =< ?MAX_NONCE ->
     Consensus = consensus_module(Header),
-    Consensus:validate_key_seal(Header).
+    Consensus:validate_key_header_seal(Header, Protocol).
 
 -spec validate_micro_block_cycle_time(header(), aec_hard_forks:protocol_vsn()) ->
                                              ok | {error, bad_micro_block_interval}.
