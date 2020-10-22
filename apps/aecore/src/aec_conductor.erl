@@ -184,7 +184,7 @@ reinit_chain() ->
 %%%===================================================================
 %%% Stratum mining pool API
 
--spec stratum_reply({aeminer_pow:nonce(), aeminer_pow_cuckoo:solution()}, candidate_hash()) -> term().
+-spec stratum_reply({aec_consensus:key_nonce(), aec_consensus:key_seal()}, candidate_hash()) -> term().
 stratum_reply({Nonce, Evd}, ForSealing) ->
     ?SERVER ! {stratum_reply, {{ok, {Nonce, Evd}}, ForSealing}}.
 
