@@ -186,7 +186,7 @@ reinit_chain() ->
 
 -spec stratum_reply({aec_consensus:key_nonce(), aec_consensus:key_seal()}, candidate_hash()) -> term().
 stratum_reply({Nonce, Evd}, ForSealing) ->
-    ?SERVER ! {stratum_reply, {{ok, {Nonce, Evd}}, ForSealing}}.
+    ?SERVER ! {stratum_reply, {{continue_mining, {ok, {Nonce, Evd}}}, ForSealing}}.
 
 %%%===================================================================
 %%% gen_server callbacks
