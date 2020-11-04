@@ -1,4 +1,4 @@
-%%% -*- erlang-indent-level: 4 -*-
+%%% -*- erlang-indent-level:4; indent-tabs-mode: nil -*-
 %%% -------------------------------------------------------------------
 %%% @copyright (C) 2020, Aeternity Anstalt
 %%% @doc Consensus behavior for customizing the node
@@ -21,7 +21,7 @@
 %%%      - Ignore PoW in the block headers
 %%%      - Use plugins almost anywhere
 %%%      - Provide an API for instrumenting the chain:
-%%%        * Start from <real_block_hash> - starts a chain simulator based on real-world state
+%%%        * Start from real_block_hash - starts a chain simulator based on real-world state
 %%%          (might be taken from mainnet/testnet).
 %%%        * Start empty - starts a new chain simulator
 %%%        * Enable/Disable instant tx processing
