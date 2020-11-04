@@ -457,6 +457,30 @@
                         }
                     }
                 },
+                "consensus" : {
+                    "description" : "The consensus algorithm used for validating blocks.",
+                    "type" : "object",
+                    "additionalProperties": false,
+                    "patternProperties" : {
+                        "^[1-9][0-9]*$" : {
+                            "description" : "Minimum height at which the given consensus algorithm gets activated. By default from genesis Cuckoo cycle based BitcoinNG is used.",
+                            "type" : "object",
+                            "required": ["name"],
+                            "additionalProperties": false,
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "config": {
+                                    "type": "object",
+                                    "oneOf": [
+                                        {"properties": {}}
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
                 "protocol_beneficiaries_enabled" : {
                     "description" :
                     "If true, the node will split rewards and send part to protocol_beneficiaries",
