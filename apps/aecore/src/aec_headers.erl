@@ -145,10 +145,11 @@
         ]).
 
 raw_key_header() ->
+    Module = aec_consensus:get_genesis_consensus_module(),
     populate_extra(
       #key_header{ root_hash = <<0:32/unit:8>>
                  , version = aec_hard_forks:protocol_effective_at_height(0)
-                 , target  = aec_consensus_bitcoin_ng:default_target() }
+                 , target  = Module:default_target() }
                %%, target  = aec_consensus:default_target_at_height(0) }
     ).
 
