@@ -458,7 +458,7 @@
                     }
                 },
                 "consensus" : {
-                    "description" : "The consensus algorithm used for validating blocks.",
+                    "description" : "The consensus algorithms used for validating blocks. Ignored if 'fork_management > network_id' has value 'ae_mainnet' or 'ae_uat'.",
                     "type" : "object",
                     "additionalProperties": false,
                     "patternProperties" : {
@@ -469,9 +469,11 @@
                             "additionalProperties": false,
                             "properties": {
                                 "name": {
+                                    "description": "The name of the consensus algorithm used at the given height",
                                     "type": "string"
                                 },
                                 "config": {
+                                    "description": "Configuration for the given consensus algorithm",
                                     "type": "object",
                                     "oneOf": [
                                         {"properties": {}}
