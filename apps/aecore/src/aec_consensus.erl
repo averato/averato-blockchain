@@ -129,6 +129,10 @@
 -callback recent_cache_n() -> non_neg_integer().
 -callback recent_cache_trim_header(aec_headers:header()) -> term().
 
+-callback keyblocks_for_target_calc() -> non_neg_integer().
+-callback keyblock_create_adjust_target(aec_blocks:block(), list(aec_headers:header())) ->
+    {ok, aec_blocks:block()} | {error, term()}.
+
 %% Pre conductor validation - filters blocks before passing it to the conductor
 %% The idea is that "dev mode" can ensure that after it gets enabled no REAL block
 %% can get inserted via the mining conductor. "dev mode" should avoid mutating the real
@@ -209,7 +213,7 @@ check_env() ->
         [] ->
             ok;
         [false] ->
-            [false] = lists:last(Changeable);
+            false = lists:last(Changeable);
         _ ->
             error(cannot_turn_off_consensus)
     end,
@@ -268,14 +272,6 @@ consensus_from_network_id(<<"ae_mainnet">>) ->
     [{0, {aec_consensus_bitcoin_ng, #{}}}];
 consensus_from_network_id(<<"ae_uat">>) ->
     [{0, {aec_consensus_bitcoin_ng, #{}}}];
-consensus_from_network_id(<<"local_roma_testnet">>) ->
-    [{0, {aec_consensus_bitcoin_ng, #{}}}];
-consensus_from_network_id(<<"local_minerva_testnet">>) ->
-    [{0, {aec_consensus_bitcoin_ng, #{}}}];
-consensus_from_network_id(<<"local_fortuna_testnet">>) ->
-    [{0, {aec_consensus_bitcoin_ng, #{}}}];
-consensus_from_network_id(<<"local_iris_testnet">>) ->
-    [{0, {aec_consensus_bitcoin_ng, #{}}}];
 consensus_from_network_id(_) ->
     case aeu_env:user_map_or_env([<<"chain">>, <<"consensus">>], aecore, consensus, undefined) of
         undefined ->
@@ -290,5 +286,12 @@ consensus_from_network_id(_) ->
 
 %% Don't crash here as config validation is performed during node startup in the consensus module
 -spec consensus_module_from_name(binary()) -> consensus_module().
+
+-ifdef(TEST).
+consensus_module_from_name(<<"pow_cuckoo">>) -> aec_consensus_bitcoin_ng;
+consensus_module_from_name(<<"ct_tests">>) -> aec_consensus_common_tests;
+consensus_module_from_name(_) -> undefined.
+-else.
 consensus_module_from_name(<<"pow_cuckoo">>) -> aec_consensus_bitcoin_ng;
 consensus_module_from_name(_) -> undefined.
+-endif.

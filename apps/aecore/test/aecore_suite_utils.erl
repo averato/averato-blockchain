@@ -191,7 +191,25 @@ create_config(Node, CTConfig, CustomConfig, Options) ->
     MergedCfg = maps_merge(default_config(Node, CTConfig), CustomConfig),
     MergedCfg1 = aec_metrics_test_utils:maybe_set_statsd_port_in_user_config(Node, MergedCfg, CTConfig),
     MergedCfg2 = maps_merge(MergedCfg1, DbBackendConfig),
-    Config = config_apply_options(Node, MergedCfg2, Options),
+    MergedCfg3 = case proplists:get_value(instant_mining, CTConfig) of
+                     undefined ->
+                         ct:log("Instant mining consensus disabled in node"),
+                         MergedCfg2;
+                     _ ->
+                         ct:log("Instant mining consensus enabled in node"),
+                         maps_merge(MergedCfg2,
+                             #{<<"chain">> =>
+                                #{<<"consensus">> =>
+                                    #{
+                                        <<"0">> =>
+                                            #{
+                                                <<"name">> => <<"ct_tests">>
+                                             }
+                                    }
+                                 }
+                              })
+                 end,
+    Config = config_apply_options(Node, MergedCfg3, Options),
     write_keys(Node, Config),
     write_config(EpochCfgPath, Config).
 
@@ -276,7 +294,7 @@ delete_node_db_if_persisted({true, {ok, MnesiaDir}}) ->
     ok.
 
 rpc_instant_tx_confirm_enabled(Node) ->
-    rpc:call(Node, aec_tx_pool, instant_tx_confirm_enabled, []).
+    aec_consensus_common_tests =:= rpc:call(Node, aec_conductor, get_active_consensus_module, []).
 
 rpc_is_leader(Node) ->
     rpc:call(Node, aec_conductor, is_leader, []).

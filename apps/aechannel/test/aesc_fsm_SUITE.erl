@@ -350,7 +350,7 @@ init_per_suite(Config) ->
                <<"mining">> => #{<<"micro_block_cycle">> => 1,
                                  <<"beneficiary">> => Miner,
                                  <<"beneficiary_reward_delay">> => 2}},
-    Config1 = aecore_suite_utils:init_per_suite([dev1], DefCfg, [{symlink_name, "latest.aesc_fsm"}, {test_module, ?MODULE}] ++ Config),
+    Config1 = aecore_suite_utils:init_per_suite([dev1], DefCfg, [{instant_mining, true}, {symlink_name, "latest.aesc_fsm"}, {test_module, ?MODULE}] ++ Config),
     [ {nodes, [aecore_suite_utils:node_tuple(N)
                || N <- [dev1]]}
     , {table_owner, TableOwner}
@@ -430,7 +430,7 @@ init_per_group_(Config) ->
             Config;
         false ->
             aecore_suite_utils:start_node(dev1, Config),
-            aecore_suite_utils:connect(aecore_suite_utils:node_name(dev1), [block_pow, instant_tx_confirm]),
+            aecore_suite_utils:connect(aecore_suite_utils:node_name(dev1)),
             ?LOG("dev1 connected", []),
             try begin
                     Node = dev1,
