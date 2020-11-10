@@ -52,7 +52,71 @@ stop() -> ok.
 dirty_validate_key_header() -> error(todo).
 
 is_providing_extra_http_endpoints() -> false.
-client_request(_) -> error(unsupported).
+%% This is not yet dev mode but it's close :)
+client_request(emit_kb) ->
+    TopHash = aec_chain:top_block_hash(),
+    {ok, Beneficiary} = aec_conductor:get_beneficiary(),
+    {ok, Block} = aec_block_key_candidate:create(TopHash, Beneficiary),
+    ok = aec_conductor:add_synced_block(Block),
+    Block;
+client_request(emit_mb) ->
+    TopHash = aec_chain:top_block_hash(),
+    {ok, MicroBlock, _} = aec_block_micro_candidate:create(TopHash),
+    {ok, MicroBlockS} = aec_keys:sign_micro_block(MicroBlock),
+    ok = aec_conductor:post_block(MicroBlockS),
+    MicroBlockS;
+client_request({mine_blocks, NumBlocksToMine, Type}) ->
+    case {aec_conductor:is_leader(), Type} of
+        {_, any} ->
+            %% Some test might expect to mine a tx - interleave KB with MB
+            Pairs = NumBlocksToMine div 2,
+            Rem = NumBlocksToMine rem 2,
+            P = [[ client_request(emit_kb)
+                 , client_request(emit_mb)
+                 ] || _ <- lists:seq(1, Pairs)],
+            R = [ client_request(emit_kb) || _ <- lists:seq(1, Rem)],
+            {ok, lists:flatten([P,R])};
+        {_, key} ->
+            {ok, [client_request(emit_kb) || _ <- lists:seq(1, NumBlocksToMine)]};
+        {true, micro} ->
+            {ok, [client_request(emit_mb) || _ <- lists:seq(1, NumBlocksToMine)]};
+        {false, micro} ->
+            client_request(emit_kb),
+            {ok, [client_request(emit_mb) || _ <- lists:seq(1, NumBlocksToMine)]}
+    end;
+client_request(mine_micro_block_emptying_mempool_or_fail) ->
+    KB = client_request(emit_kb),
+    MB = client_request(emit_mb),
+    %% If instant mining is enabled then we can't have microforks :)
+    {ok, []} = aec_tx_pool:peek(infinity),
+    {ok, [KB, MB]};
+client_request({mine_blocks_until_txs_on_chain, TxHashes, Max}) ->
+    mine_blocks_until_txs_on_chain(TxHashes, Max, []).
+
+mine_blocks_until_txs_on_chain(_TxHashes, 0, _Blocks) ->
+    {error, max_reached};
+mine_blocks_until_txs_on_chain(TxHashes, Max, Blocks) ->
+    case aec_conductor:is_leader() of
+        false ->
+            KB = client_request(emit_kb),
+            mine_blocks_until_txs_on_chain(TxHashes, Max-1, [KB|Blocks]);
+        true ->
+            MB = client_request(emit_mb),
+            KB = client_request(emit_kb),
+            NewAcc = [KB|Blocks],
+            case txs_not_in_microblock(MB, TxHashes) of
+                []        -> {ok, lists:reverse(NewAcc)};
+                TxHashes1 -> mine_blocks_until_txs_on_chain(TxHashes1, Max - 1, NewAcc)
+            end
+    end.
+
+txs_not_in_microblock(MB, TxHashes) ->
+    [ TxHash || TxHash <- TxHashes, not tx_in_microblock(MB, TxHash) ].
+
+tx_in_microblock(MB, TxHash) ->
+    lists:any(fun(STx) ->
+                      aeser_api_encoder:encode(tx_hash, aetx_sign:hash(STx)) == TxHash
+              end, aec_blocks:txs(MB)).
 
 extra_from_header(_) ->
     #{consensus => ?MODULE}.

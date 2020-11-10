@@ -201,8 +201,13 @@ get_active_consensus_module() ->
 consensus_request(Request) ->
     %% When changing the active consensus module or the configuration
     %% The conductor ensures that the given "consensus" was fully started
-    M = get_active_consensus_module(),
-    M:client_request(Request).
+    try
+        M = get_active_consensus_module(),
+        M:client_request(Request)
+    catch
+        Error:Reason:Stack ->
+            lager:debug("consensus_request(~p) Failed: ~p ~p ~p\n", [Request, Error, Reason, Stack])
+    end.
 
 %%%===================================================================
 %%% Stratum mining pool API

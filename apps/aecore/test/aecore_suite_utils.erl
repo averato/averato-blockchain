@@ -293,17 +293,11 @@ delete_node_db_if_persisted({true, {ok, MnesiaDir}}) ->
     {false, _} = {filelib:is_file(MnesiaDir), MnesiaDir},
     ok.
 
-rpc_instant_tx_confirm_enabled(Node) ->
+rpc_test_consensus_enabled(Node) ->
     aec_consensus_common_tests =:= rpc:call(Node, aec_conductor, get_active_consensus_module, []).
 
-rpc_is_leader(Node) ->
-    rpc:call(Node, aec_conductor, is_leader, []).
-
-rpc_emit_kb(Node) ->
-    rpc:call(Node, aec_instant_mining_plugin, emit_kb, []).
-
-rpc_emit_mb(Node) ->
-    rpc:call(Node, aec_instant_mining_plugin, emit_mb, []).
+rpc_consensus_request(Node, Request) ->
+    rpc:call(Node, aec_conductor, consensus_request, [Request]).
 
 expected_mine_rate() ->
     ?DEFAULT_CUSTOM_EXPECTED_MINE_RATE.
@@ -330,26 +324,9 @@ mine_blocks(Node, NumBlocksToMine, MiningRate, Opts) ->
     mine_blocks(Node, NumBlocksToMine, MiningRate, any, Opts).
 
 mine_blocks(Node, NumBlocksToMine, MiningRate, Type, Opts) ->
-    case rpc_instant_tx_confirm_enabled(Node) of
+    case rpc_test_consensus_enabled(Node) of
         true ->
-            case {rpc_is_leader(Node), Type} of
-                {_, any} ->
-                    %% Some test might expect to mine a tx - interleave KB with MB
-                    Pairs = NumBlocksToMine div 2,
-                    Rem = NumBlocksToMine rem 2,
-                    P = [[ rpc_emit_kb(Node)
-                         , rpc_emit_mb(Node)
-                         ] || _ <- lists:seq(1, Pairs)],
-                    R = [ rpc_emit_kb(Node) || _ <- lists:seq(1, Rem)],
-                    {ok, lists:flatten([P,R])};
-                {_, key} ->
-                    {ok, [rpc_emit_kb(Node) || _ <- lists:seq(1, NumBlocksToMine)]};
-                {true, micro} ->
-                    {ok, [rpc_emit_mb(Node) || _ <- lists:seq(1, NumBlocksToMine)]};
-                {false, micro} ->
-                    rpc_emit_kb(Node),
-                    {ok, [rpc_emit_mb(Node) || _ <- lists:seq(1, NumBlocksToMine)]}
-            end;
+            rpc_consensus_request(Node, {mine_blocks, NumBlocksToMine, Type});
         false ->
             Fun = fun() ->
                 mine_blocks_loop(NumBlocksToMine, Type)
@@ -374,9 +351,9 @@ mine_blocks_until_txs_on_chain(Node, TxHashes, MiningRate, Max) ->
 mine_blocks_until_txs_on_chain(Node, TxHashes, MiningRate, Max, Opts) ->
     %% Fail early rather than having to wait until max_reached if txs already on-chain
     ok = assert_not_already_on_chain(Node, TxHashes),
-    case rpc_instant_tx_confirm_enabled(Node) of
+    case rpc_test_consensus_enabled(Node) of
         true ->
-            instant_mine_blocks_until_txs_on_chain(Node, TxHashes, Max, []);
+            rpc_consensus_request(Node, {mine_blocks_until_txs_on_chain, TxHashes, Max});
         false ->
             Fun = fun() ->
                 mine_blocks_until_txs_on_chain_loop(Node, TxHashes, Max, [])
@@ -384,31 +361,10 @@ mine_blocks_until_txs_on_chain(Node, TxHashes, MiningRate, Max, Opts) ->
             mine_safe_setup(Node, MiningRate, Opts, Fun)
     end.
 
-instant_mine_blocks_until_txs_on_chain(_Node, _TxHashes, 0, _Blocks) ->
-    {error, max_reached};
-instant_mine_blocks_until_txs_on_chain(Node, TxHashes, Max, Blocks) ->
-    case rpc_is_leader(Node) of
-        false ->
-            KB = rpc_emit_kb(Node),
-            instant_mine_blocks_until_txs_on_chain(Node, TxHashes, Max-1, [KB|Blocks]);
-        true ->
-            MB = rpc_emit_mb(Node),
-            KB = rpc_emit_kb(Node),
-            NewAcc = [KB|Blocks],
-            case txs_not_in_microblock(MB, TxHashes) of
-                []        -> {ok, lists:reverse(NewAcc)};
-                TxHashes1 -> instant_mine_blocks_until_txs_on_chain(Node, TxHashes1, Max - 1, NewAcc)
-            end
-    end.
-
 mine_micro_block_emptying_mempool_or_fail(Node) ->
-    case rpc_instant_tx_confirm_enabled(Node) of
+    case rpc_test_consensus_enabled(Node) of
         true ->
-            KB = rpc_emit_kb(Node),
-            MB = rpc_emit_mb(Node),
-            %% If instant mining is enabled then we can't have microforks :)
-            {ok, []} = rpc:call(Node, aec_tx_pool, peek, [infinity]),
-            {ok, [KB, MB]};
+            rpc_consensus_request(Node, mine_micro_block_emptying_mempool_or_fail);
         false ->
             Fun = fun() ->
                       mine_blocks_loop(2, any)
